@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Levenshtein Distance — Step by Step</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e17;
+    --surface: #111827;
+    --surface2: #1a2236;
+    --border: #1e2d4a;
+    --text: #e2e8f0;
+    --text-dim: #64748b;
+    --accent: #38bdf8;
+    --accent-glow: rgba(56, 189, 248, 0.15);
+    --green: #34d399;
+    --green-glow: rgba(52, 211, 153, 0.15);
+    --orange: #fb923c;
+    --orange-glow: rgba(251, 146, 60, 0.15);
+    --pink: #f472b6;
+    --pink-glow: rgba(244, 114, 182, 0.15);
+    --purple: #a78bfa;
+    --purple-glow: rgba(167, 139, 250, 0.15);
+    --red: #f87171;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 24px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  header h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+
+  header p {
+    color: var(--text-dim);
+    font-size: 1rem;
+  }
+
+  /* Input Section */
+  .input-section {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    align-items: flex-end;
+    margin-bottom: 40px;
+    flex-wrap: wrap;
+  }
+
+  .input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .input-group label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .input-group input {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1rem;
+    padding: 10px 16px;
+    border-radius: 8px;
+    width: 200px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .input-group input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 10px 24px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: var(--bg);
+  }
+
+  .btn-primary:hover { opacity: 0.85; transform: translateY(-1px); }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+  }
+
+  .btn-control {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    font-size: 0.8rem;
+    padding: 8px 18px;
+  }
+
+  .btn-control:hover { background: var(--border); }
+  .btn-control:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .speed-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .speed-label select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    padding: 6px 10px;
+    border-radius: 6px;
+    outline: none;
+  }
+
+  /* Main Layout */
+  .main-layout {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 32px;
+    align-items: start;
+  }
+
+  @media (max-width: 900px) {
+    .main-layout { grid-template-columns: 1fr; }
+  }
+
+  /* Matrix */
+  .matrix-wrapper {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    overflow-x: auto;
+  }
+
+  .matrix-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 20px;
+  }
+
+  table {
+    border-collapse: separate;
+    border-spacing: 4px;
+    margin: 0 auto;
+  }
+
+  td, th {
+    width: 48px;
+    height: 48px;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    border-radius: 8px;
+    transition: all 0.35s ease;
+    position: relative;
+  }
+
+  th {
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 1rem;
+  }
+
+  th.str1-char { color: var(--orange); }
+  th.str2-char { color: var(--green); }
+
+  td.cell {
+    background: var(--surface2);
+    border: 1px solid transparent;
+    color: var(--text-dim);
+  }
+
+  td.cell.filled {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  td.cell.current {
+    border: 2px solid var(--accent);
+    box-shadow: 0 0 20px var(--accent-glow), inset 0 0 12px var(--accent-glow);
+    color: #fff;
+    font-weight: 700;
+    transform: scale(1.08);
+    z-index: 2;
+    animation: pulse 1s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 20px var(--accent-glow), inset 0 0 12px var(--accent-glow); }
+    50% { box-shadow: 0 0 30px rgba(56,189,248,0.3), inset 0 0 18px var(--accent-glow); }
+  }
+
+  td.cell.source-diag {
+    border: 2px solid var(--purple);
+    box-shadow: 0 0 12px var(--purple-glow);
+    background: rgba(167, 139, 250, 0.08);
+  }
+
+  td.cell.source-up {
+    border: 2px solid var(--pink);
+    box-shadow: 0 0 12px var(--pink-glow);
+    background: rgba(244, 114, 182, 0.08);
+  }
+
+  td.cell.source-left {
+    border: 2px solid var(--orange);
+    box-shadow: 0 0 12px var(--orange-glow);
+    background: rgba(251, 146, 60, 0.08);
+  }
+
+  td.cell.match {
+    border: 2px solid var(--green);
+    box-shadow: 0 0 15px var(--green-glow);
+    background: rgba(52, 211, 153, 0.1);
+  }
+
+  td.cell.base-init {
+    background: rgba(56, 189, 248, 0.06);
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    color: var(--accent);
+  }
+
+  td.cell.result-cell {
+    border: 2px solid var(--green);
+    box-shadow: 0 0 25px rgba(52, 211, 153, 0.3);
+    background: rgba(52, 211, 153, 0.12);
+    color: var(--green);
+    font-weight: 700;
+    font-size: 1.1rem;
+    animation: resultPulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes resultPulse {
+    0%, 100% { box-shadow: 0 0 25px rgba(52,211,153,0.3); }
+    50% { box-shadow: 0 0 40px rgba(52,211,153,0.5); }
+  }
+
+  /* Explanation Panel */
+  .explanation-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    position: sticky;
+    top: 20px;
+  }
+
+  .explanation-panel .panel-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 16px;
+  }
+
+  .step-counter {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+
+  .step-explanation {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text);
+    min-height: 120px;
+  }
+
+  .step-explanation code {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--surface2);
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: var(--accent);
+  }
+
+  .step-explanation .match-tag {
+    display: inline-block;
+    background: var(--green-glow);
+    color: var(--green);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    margin-left: 4px;
+  }
+
+  .step-explanation .nomatch-tag {
+    display: inline-block;
+    background: rgba(248, 113, 113, 0.15);
+    color: var(--red);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    margin-left: 4px;
+  }
+
+  .formula-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    margin-top: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    line-height: 1.8;
+    color: var(--text-dim);
+  }
+
+  .formula-box .val { color: var(--text); font-weight: 600; }
+  .formula-box .op { color: var(--purple); }
+  .formula-box .res { color: var(--green); font-weight: 700; }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+  }
+
+  .legend-dot.diag { background: var(--purple); }
+  .legend-dot.up { background: var(--pink); }
+  .legend-dot.left { background: var(--orange); }
+  .legend-dot.current { background: var(--accent); }
+  .legend-dot.match { background: var(--green); }
+
+  /* Progress bar */
+  .progress-bar {
+    width: 100%;
+    height: 4px;
+    background: var(--surface2);
+    border-radius: 2px;
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--purple));
+    border-radius: 2px;
+    transition: width 0.3s ease;
+    width: 0%;
+  }
+
+  /* Concept cards */
+  .concepts {
+    margin-top: 32px;
+  }
+
+  .concepts h3 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 14px;
+  }
+
+  .concept-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+  }
+
+  .concept-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+  }
+
+  .concept-card .icon {
+    font-size: 1.4rem;
+    margin-bottom: 6px;
+  }
+
+  .concept-card .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .concept-card .desc {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    line-height: 1.4;
+  }
+
+  .concept-card.insert { border-color: rgba(251,146,60,0.3); }
+  .concept-card.insert .label { color: var(--orange); }
+  .concept-card.delete { border-color: rgba(244,114,182,0.3); }
+  .concept-card.delete .label { color: var(--pink); }
+  .concept-card.replace { border-color: rgba(167,139,250,0.3); }
+  .concept-card.replace .label { color: var(--purple); }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Levenshtein Distance</h1>
+    <p>Interactive step-by-step matrix filling visualization</p>
+  </header>
+
+  <div class="input-section">
+    <div class="input-group">
+      <label>String 1</label>
+      <input type="text" id="str1" value="kitten" maxlength="12" />
+    </div>
+    <div class="input-group">
+      <label>String 2</label>
+      <input type="text" id="str2" value="sitting" maxlength="12" />
+    </div>
+    <button class="btn btn-primary" onclick="startVisualization()">Visualize</button>
+  </div>
+
+  <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+
+  <div class="controls">
+    <button class="btn btn-control" id="btnPrev" onclick="prevStep()" disabled>← Prev</button>
+    <button class="btn btn-control" id="btnNext" onclick="nextStep()">Next →</button>
+    <button class="btn btn-control" id="btnPlay" onclick="togglePlay()">▶ Play</button>
+    <button class="btn btn-control" onclick="skipToEnd()">⏭ Skip</button>
+    <span class="speed-label">Speed:
+      <select id="speedSelect">
+        <option value="800">Slow</option>
+        <option value="400" selected>Normal</option>
+        <option value="150">Fast</option>
+      </select>
+    </span>
+  </div>
+
+  <div class="main-layout">
+    <div class="matrix-wrapper">
+      <div class="matrix-title">DP Matrix</div>
+      <div id="matrixContainer"></div>
+
+      <div class="concepts">
+        <h3>Three Operations</h3>
+        <div class="concept-grid">
+          <div class="concept-card insert">
+            <div class="icon">←</div>
+            <div class="label">Insert</div>
+            <div class="desc">dp[i][j-1] + 1<br>Take left cell + 1</div>
+          </div>
+          <div class="concept-card delete">
+            <div class="icon">↑</div>
+            <div class="label">Delete</div>
+            <div class="desc">dp[i-1][j] + 1<br>Take above cell + 1</div>
+          </div>
+          <div class="concept-card replace">
+            <div class="icon">↖</div>
+            <div class="label">Replace</div>
+            <div class="desc">dp[i-1][j-1] + 1<br>Take diagonal + 1</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="explanation-panel">
+      <div class="panel-title">Explanation</div>
+      <div class="step-counter" id="stepCounter">Step 0 / 0</div>
+      <div class="step-explanation" id="stepExplanation">
+        Enter two strings and click <strong>Visualize</strong> to begin the step-by-step walkthrough of how the Levenshtein distance matrix is filled.
+      </div>
+      <div class="formula-box" id="formulaBox" style="display:none;"></div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot current"></div>Current cell</div>
+        <div class="legend-item"><div class="legend-dot match"></div>Match (free)</div>
+        <div class="legend-item"><div class="legend-dot diag"></div>Diagonal (replace)</div>
+        <div class="legend-item"><div class="legend-dot up"></div>Above (delete)</div>
+        <div class="legend-item"><div class="legend-dot left"></div>Left (insert)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let str1, str2, m, n, dp;
+let steps = [];
+let currentStep = -1;
+let playing = false;
+let playInterval = null;
+
+function startVisualization() {
+  stopPlay();
+  str1 = document.getElementById('str1').value || 'kitten';
+  str2 = document.getElementById('str2').value || 'sitting';
+  m = str1.length;
+  n = str2.length;
+
+  dp = Array.from({length: m+1}, () => Array(n+1).fill(null));
+  steps = [];
+  currentStep = -1;
+
+  buildSteps();
+  renderMatrix();
+  showStep(0);
+}
+
+function buildSteps() {
+  // Step 0: Intro
+  steps.push({
+    type: 'intro',
+    explanation: `We want to find the minimum number of edits (insert, delete, replace) to transform <code>"${str1}"</code> (length ${m}) into <code>"${str2}"</code> (length ${n}).<br><br>We create a <code>${m+1} × ${n+1}</code> matrix where <code>dp[i][j]</code> = edit distance between the first <code>i</code> chars of str1 and first <code>j</code> chars of str2.`
+  });
+
+  // Step 1: Init first column
+  for (let i = 0; i <= m; i++) {
+    steps.push({
+      type: 'init-col',
+      i, j: 0,
+      value: i,
+      explanation: `<strong>Initialize column 0:</strong><br>Set <code>dp[${i}][0] = ${i}</code><br><br>This means: to transform the first ${i} character${i!==1?'s':''} of <code>"${str1}"</code> ${i>0?`(<code>"${str1.substring(0,i)}"</code>)`:''} into an empty string <code>""</code>, we need <strong>${i} deletion${i!==1?'s':''}</strong>.`
+    });
+  }
+
+  // Step 2: Init first row
+  for (let j = 1; j <= n; j++) {
+    steps.push({
+      type: 'init-row',
+      i: 0, j,
+      value: j,
+      explanation: `<strong>Initialize row 0:</strong><br>Set <code>dp[0][${j}] = ${j}</code><br><br>This means: to transform an empty string <code>""</code> into the first ${j} character${j!==1?'s':''} of <code>"${str2}"</code> (<code>"${str2.substring(0,j)}"</code>), we need <strong>${j} insertion${j!==1?'s':''}</strong>.`
+    });
+  }
+
+  // Step 3: Fill cells
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const c1 = str1[i-1];
+      const c2 = str2[j-1];
+      const diag = dp_at(i-1, j-1);
+      const up = dp_at(i-1, j);
+      const left = dp_at(i, j-1);
+      let val, isMatch;
+
+      if (c1 === c2) {
+        val = diag;
+        isMatch = true;
+      } else {
+        val = 1 + Math.min(left, up, diag);
+        isMatch = false;
+      }
+
+      // Store for later
+      set_dp(i, j, val);
+
+      const minSource = !isMatch ? (val - 1 === diag ? 'diag' : (val - 1 === up ? 'up' : 'left')) : 'diag';
+
+      let explanation, formula;
+      if (isMatch) {
+        explanation = `Comparing <code>str1[${i-1}] = '${c1}'</code> vs <code>str2[${j-1}] = '${c2}'</code> <span class="match-tag">MATCH ✓</span><br><br>Characters are the <strong>same</strong>, so no edit needed. We copy the diagonal value:<br><code>dp[${i}][${j}] = dp[${i-1}][${j-1}] = ${diag}</code>`;
+        formula = `<span class="op">Characters match →</span> copy diagonal<br>dp[${i}][${j}] = dp[${i-1}][${j-1}] = <span class="res">${val}</span>`;
+      } else {
+        explanation = `Comparing <code>str1[${i-1}] = '${c1}'</code> vs <code>str2[${j-1}] = '${c2}'</code> <span class="nomatch-tag">MISMATCH ✗</span><br><br>Characters differ — we pick the <strong>minimum</strong> of three operations and add 1:<br>• <strong>Insert</strong> (left): dp[${i}][${j-1}] + 1 = ${left} + 1 = ${left+1}<br>• <strong>Delete</strong> (above): dp[${i-1}][${j}] + 1 = ${up} + 1 = ${up+1}<br>• <strong>Replace</strong> (diagonal): dp[${i-1}][${j-1}] + 1 = ${diag} + 1 = ${diag+1}`;
+        formula = `1 + min(<span class="val">${left}</span>, <span class="val">${up}</span>, <span class="val">${diag}</span>)<br>= 1 + <span class="val">${Math.min(left,up,diag)}</span> = <span class="res">${val}</span>`;
+      }
+
+      steps.push({
+        type: 'fill',
+        i, j, value: val,
+        isMatch,
+        diag, up, left,
+        minSource,
+        explanation,
+        formula
+      });
+    }
+  }
+
+  // Final step
+  const result = dp_at(m, n);
+  steps.push({
+    type: 'result',
+    explanation: `<strong>Done!</strong> 🎉<br><br>The Levenshtein distance between <code>"${str1}"</code> and <code>"${str2}"</code> is <strong style="color:var(--green);font-size:1.3rem;">${result}</strong>.<br><br>This is found at <code>dp[${m}][${n}]</code> — the bottom-right corner of the matrix. It means we need a minimum of <strong>${result} edit${result!==1?'s':''}</strong> to transform one string into the other.`
+  });
+}
+
+function dp_at(i, j) {
+  // Look through steps to find the value
+  for (const s of steps) {
+    if ((s.type === 'init-col' || s.type === 'init-row' || s.type === 'fill') && s.i === i && s.j === j) {
+      return s.value;
+    }
+  }
+  return 0;
+}
+
+function set_dp(i, j, v) {
+  dp[i][j] = v;
+}
+
+function renderMatrix() {
+  const container = document.getElementById('matrixContainer');
+  let html = '<table>';
+
+  // Header row: empty + empty + str2 chars
+  html += '<tr><th></th><th style="color:var(--text-dim);">ε</th>';
+  for (let j = 0; j < n; j++) {
+    html += `<th class="str2-char">${str2[j]}</th>`;
+  }
+  html += '</tr>';
+
+  for (let i = 0; i <= m; i++) {
+    html += '<tr>';
+    if (i === 0) html += '<th style="color:var(--text-dim);">ε</th>';
+    else html += `<th class="str1-char">${str1[i-1]}</th>`;
+
+    for (let j = 0; j <= n; j++) {
+      html += `<td class="cell" id="cell-${i}-${j}"></td>`;
+    }
+    html += '</tr>';
+  }
+
+  html += '</table>';
+  container.innerHTML = html;
+}
+
+function showStep(idx) {
+  if (idx < 0 || idx >= steps.length) return;
+  currentStep = idx;
+
+  // Clear all highlights
+  document.querySelectorAll('td.cell').forEach(c => {
+    c.className = 'cell';
+    c.textContent = '';
+  });
+
+  // Fill all values up to current step
+  for (let s = 0; s <= idx; s++) {
+    const step = steps[s];
+    if (step.type === 'intro' || step.type === 'result') continue;
+    const cell = document.getElementById(`cell-${step.i}-${step.j}`);
+    if (cell) {
+      cell.textContent = step.value;
+      cell.classList.add('filled');
+      if (step.type === 'init-col' || step.type === 'init-row') {
+        cell.classList.add('base-init');
+      }
+    }
+  }
+
+  // Highlight current step
+  const step = steps[idx];
+  if (step.type === 'init-col' || step.type === 'init-row') {
+    const cell = document.getElementById(`cell-${step.i}-${step.j}`);
+    if (cell) {
+      cell.classList.remove('base-init');
+      cell.classList.add('current');
+    }
+  } else if (step.type === 'fill') {
+    const cell = document.getElementById(`cell-${step.i}-${step.j}`);
+    if (cell) cell.classList.add('current');
+
+    if (step.isMatch) {
+      const d = document.getElementById(`cell-${step.i-1}-${step.j-1}`);
+      if (d) d.classList.add('match');
+    } else {
+      const d = document.getElementById(`cell-${step.i-1}-${step.j-1}`);
+      const u = document.getElementById(`cell-${step.i-1}-${step.j}`);
+      const l = document.getElementById(`cell-${step.i}-${step.j-1}`);
+      if (d) d.classList.add('source-diag');
+      if (u) u.classList.add('source-up');
+      if (l) l.classList.add('source-left');
+    }
+  } else if (step.type === 'result') {
+    const cell = document.getElementById(`cell-${m}-${n}`);
+    if (cell) cell.classList.add('result-cell');
+  }
+
+  // Update explanation
+  document.getElementById('stepCounter').textContent = `Step ${idx} / ${steps.length - 1}`;
+  document.getElementById('stepExplanation').innerHTML = step.explanation;
+
+  const formulaBox = document.getElementById('formulaBox');
+  if (step.formula) {
+    formulaBox.innerHTML = step.formula;
+    formulaBox.style.display = 'block';
+  } else {
+    formulaBox.style.display = 'none';
+  }
+
+  // Update progress
+  document.getElementById('progressFill').style.width = `${(idx / (steps.length - 1)) * 100}%`;
+
+  // Update buttons
+  document.getElementById('btnPrev').disabled = idx <= 0;
+  document.getElementById('btnNext').disabled = idx >= steps.length - 1;
+}
+
+function nextStep() {
+  if (currentStep < steps.length - 1) showStep(currentStep + 1);
+  else stopPlay();
+}
+
+function prevStep() {
+  if (currentStep > 0) showStep(currentStep - 1);
+}
+
+function togglePlay() {
+  if (playing) { stopPlay(); return; }
+  playing = true;
+  document.getElementById('btnPlay').textContent = '⏸ Pause';
+  const speed = parseInt(document.getElementById('speedSelect').value);
+  playInterval = setInterval(() => {
+    if (currentStep >= steps.length - 1) { stopPlay(); return; }
+    nextStep();
+  }, speed);
+}
+
+function stopPlay() {
+  playing = false;
+  document.getElementById('btnPlay').textContent = '▶ Play';
+  if (playInterval) { clearInterval(playInterval); playInterval = null; }
+}
+
+function skipToEnd() {
+  stopPlay();
+  showStep(steps.length - 1);
+}
+
+// Initialize on load
+window.addEventListener('load', startVisualization);
+</script>
+</body>
+</html>
